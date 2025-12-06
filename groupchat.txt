@@ -1,0 +1,978 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group Chat</title>
+  <script src="/_sdk/data_sdk.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+    body {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      height: 100%;
+      width: 100%;
+    }
+
+    html {
+      height: 100%;
+      width: 100%;
+    }
+
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      position: relative;
+    }
+
+    .chat-header {
+      padding: 20px;
+      color: white;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .chat-title {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .call-button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 25px;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      backdrop-filter: blur(10px);
+    }
+
+    .call-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.05);
+    }
+
+    .call-icon {
+      font-size: 18px;
+    }
+
+    .welcome-text {
+      margin: 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message-bubble {
+      background: white;
+      border-radius: 12px;
+      padding: 12px 16px;
+      max-width: 80%;
+      word-wrap: break-word;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-username {
+      font-weight: 700;
+      color: #667eea;
+      margin-bottom: 4px;
+      font-size: 14px;
+    }
+
+    .message-text {
+      color: #333;
+      margin-bottom: 4px;
+      font-size: 15px;
+      line-height: 1.4;
+    }
+
+    .message-time {
+      color: #999;
+      font-size: 11px;
+    }
+
+    .chat-input-area {
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      border-top: 2px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .input-form {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .message-input {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+      font-family: inherit;
+    }
+
+    .message-input:focus {
+      border-color: #667eea;
+    }
+
+    .send-button {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+
+    .send-button:hover {
+      background: #5568d3;
+    }
+
+    .send-button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .limit-warning {
+      display: none;
+      padding: 10px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 6px;
+      color: #856404;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .limit-warning.show {
+      display: block;
+    }
+
+    .messages-area::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .messages-area::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .messages-area::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    .messages-area::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .call-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .call-modal.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .call-interface {
+      background: #1a1a1a;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      width: 90%;
+      text-align: center;
+      position: relative;
+    }
+
+    .call-status {
+      color: white;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .video-preview {
+      background: #2a2a2a;
+      border-radius: 15px;
+      height: 300px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .call-controls {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .control-button {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      transition: all 0.2s;
+    }
+
+    .control-button:hover {
+      transform: scale(1.1);
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="https://cdn.tailwindcss.com" type="text/javascript"></script>
+ </head>
+ <body><!-- Login Screen -->
+  <div class="call-modal active" id="loginScreen" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+   <div class="call-interface" style="max-width: 450px;">
+    <div class="call-status" id="loginTitle" style="margin-bottom: 10px;">
+     Join Group Chat
+    </div>
+    <p style="color: #aaa; margin-bottom: 30px; font-size: 14px;">Enter the password to access the chat</p>
+    <form id="loginForm" style="text-align: left;">
+     <div style="margin-bottom: 20px;"><label for="loginDisplayName" style="display: block; color: white; margin-bottom: 8px; font-size: 14px; font-weight: 600;">Your Name</label> <input type="text" id="loginDisplayName" style="width: 100%; padding: 12px; border: 2px solid #4a5568; border-radius: 8px; font-size: 15px; background: #2a2a2a; color: white; outline: none; box-sizing: border-box;" placeholder="Enter your name" required maxlength="30">
+     </div>
+     <div style="margin-bottom: 20px;"><label for="loginPassword" style="display: block; color: white; margin-bottom: 8px; font-size: 14px; font-weight: 600;">Chat Password</label> <input type="password" id="loginPassword" style="width: 100%; padding: 12px; border: 2px solid #4a5568; border-radius: 8px; font-size: 15px; background: #2a2a2a; color: white; outline: none; box-sizing: border-box;" placeholder="Enter the chat password" required>
+     </div>
+     <div id="loginError" style="display: none; padding: 10px; background: #e53e3e; color: white; border-radius: 6px; margin-bottom: 20px; font-size: 14px;"></div><button type="submit" class="control-button" id="joinChatButton" style="width: 100%; padding: 14px; border-radius: 8px; background: #667eea; color: white; font-size: 16px; font-weight: 600;"> Join Chat </button>
+    </form>
+   </div>
+  </div>
+  <div class="chat-container" id="chatContainer" style="display: none;">
+   <header class="chat-header">
+    <div class="header-top">
+     <h1 class="chat-title" id="chatTitle">Group Chat</h1>
+     <div style="display: flex; gap: 10px;"><button class="call-button" id="historyButton" aria-label="Chat history"> <span class="call-icon">📜</span> <span>History</span> </button> <button class="call-button" id="photoButton" aria-label="Upload photo"> <span class="call-icon">📷</span> <span>Upload Photo</span> </button> <button class="call-button" id="profileButton" aria-label="Profile settings"> <span class="call-icon">👤</span> <span>Profile</span> </button>
+     </div>
+    </div>
+    <p class="welcome-text" id="welcomeMessage">Welcome! Share your thoughts with everyone.</p>
+   </header>
+   <main class="messages-area" id="messagesArea" role="main" aria-label="Chat messages"><!-- Messages will appear here -->
+   </main>
+   <div class="chat-input-area">
+    <div class="limit-warning" id="limitWarning" role="alert">
+     Maximum limit of 999 messages reached. Messages will continue to display but new messages cannot be sent.
+    </div>
+    <form class="input-form" id="messageForm"><label for="messageInput" class="sr-only">Your message</label> <textarea id="messageInput" class="message-input" placeholder="Type your message..." required maxlength="500" rows="1"></textarea> <button type="submit" class="send-button" id="sendButton">Send</button>
+    </form>
+   </div><!-- Profile Modal -->
+   <div class="call-modal" id="profileModal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+    <div class="call-interface" style="max-width: 450px;">
+     <div class="call-status" id="profileTitle" style="margin-bottom: 30px;">
+      Profile Settings
+     </div>
+     <form id="profileForm" style="text-align: left;">
+      <div style="margin-bottom: 20px;"><label for="displayNameInput" style="display: block; color: white; margin-bottom: 8px; font-size: 14px; font-weight: 600;">Display Name</label> <input type="text" id="displayNameInput" style="width: 100%; padding: 12px; border: 2px solid #4a5568; border-radius: 8px; font-size: 15px; background: #2a2a2a; color: white; outline: none; box-sizing: border-box;" placeholder="Enter your display name" required maxlength="30">
+      </div>
+      <div id="profileError" style="display: none; padding: 10px; background: #e53e3e; color: white; border-radius: 6px; margin-bottom: 20px; font-size: 14px;"></div>
+      <div id="profileSuccess" style="display: none; padding: 10px; background: #38a169; color: white; border-radius: 6px; margin-bottom: 20px; font-size: 14px;"></div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;"><button type="button" class="control-button" id="cancelProfileButton" style="width: auto; padding: 12px 24px; border-radius: 8px; background: #4a5568; color: white; font-size: 15px; font-weight: 600;"> Cancel </button> <button type="submit" class="control-button" id="saveProfileButton" style="width: auto; padding: 12px 24px; border-radius: 8px; background: #667eea; color: white; font-size: 15px; font-weight: 600;"> Save Changes </button>
+      </div>
+     </form>
+    </div>
+   </div><!-- Chat History Modal -->
+   <div class="call-modal" id="historyModal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="call-interface" style="max-width: 700px; max-height: 80%; overflow: hidden; display: flex; flex-direction: column;">
+     <div class="call-status" id="historyTitle" style="margin-bottom: 20px;">
+      Chat History
+     </div>
+     <div style="flex: 1; overflow-y: auto; background: #2a2a2a; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+      <div id="historyContent" style="display: flex; flex-direction: column; gap: 12px;"><!-- History messages will appear here -->
+      </div>
+     </div>
+     <div style="display: flex; gap: 12px; justify-content: space-between; align-items: center;">
+      <div style="color: #aaa; font-size: 14px;"><span id="historyCount">0</span> messages total
+      </div><button class="control-button" id="closeHistoryButton" aria-label="Close" style="width: auto; padding: 12px 32px; border-radius: 8px; background: #4a5568; color: white; font-size: 15px; font-weight: 600;"> Close </button>
+     </div>
+    </div>
+   </div><!-- Photo Upload Modal -->
+   <div class="call-modal" id="photoModal" role="dialog" aria-modal="true" aria-labelledby="photoStatus">
+    <div class="call-interface" style="max-width: 500px;">
+     <div class="call-status" id="photoStatus">
+      Upload Photo
+     </div>
+     <div class="video-preview" id="photoPreview" style="height: 300px;">
+      <div style="text-align: center;">
+       <div style="font-size: 80px; margin-bottom: 10px;">
+        📷
+       </div>
+       <div style="color: #999; font-size: 14px;">
+        Click below to select a photo
+       </div>
+      </div>
+     </div>
+     <div id="photoStatusMessage" style="color: #aaa; margin-bottom: 30px; font-size: 14px; text-align: center;">
+      Choose a photo to share with everyone
+     </div><input type="file" id="photoInput" accept="image/*" style="display: none;">
+     <div class="call-controls" style="flex-direction: column; gap: 12px;"><button class="control-button" id="selectPhotoButton" aria-label="Select photo" style="width: auto; padding: 14px 32px; border-radius: 8px; background: #667eea; color: white; font-size: 16px; font-weight: 600;"> 📁 Select Photo </button> <button class="control-button" id="sendPhotoButton" aria-label="Send photo" style="width: auto; padding: 14px 32px; border-radius: 8px; background: #38a169; color: white; font-size: 16px; font-weight: 600; display: none;"> 📤 Send to Everyone </button>
+     </div><button class="control-button" id="closePhotoButton" aria-label="Close" style="margin-top: 20px; width: auto; padding: 12px 32px; border-radius: 8px; background: #4a5568; color: white; font-size: 15px; font-weight: 600;"> Close </button>
+    </div>
+   </div>
+  </div>
+  <style>
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+  </style>
+  <script>
+    const defaultConfig = {
+      chat_title: "Group Chat",
+      welcome_message: "Welcome! Share your thoughts with everyone.",
+      background_color: "#667eea",
+      surface_color: "#ffffff",
+      text_color: "#333333",
+      primary_action_color: "#667eea",
+      font_family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      font_size: 15
+    };
+
+    let messages = [];
+    let messageCount = 0;
+    let selectedPhoto = null;
+    let userProfile = {
+      displayName: ''
+    };
+    let lastSeenCount = 0;
+    let originalTitle = 'Group Chat';
+
+    const dataHandler = {
+      onDataChanged(data) {
+        messages = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        messageCount = messages.length;
+        renderMessages();
+        checkMessageLimit();
+        updateTabNotification();
+      }
+    };
+
+    function updateTabNotification() {
+      const unreadCount = messageCount - lastSeenCount;
+      
+      if (unreadCount > 0 && document.hidden) {
+        document.title = `(${unreadCount}) ${originalTitle}`;
+      } else {
+        document.title = originalTitle;
+        lastSeenCount = messageCount;
+      }
+    }
+
+    function renderMessages() {
+      const messagesArea = document.getElementById('messagesArea');
+      const existingMessages = new Map(
+        [...messagesArea.children].map(el => [el.dataset.timestamp, el])
+      );
+
+      messages.forEach(msg => {
+        const key = msg.timestamp;
+        if (existingMessages.has(key)) {
+          existingMessages.delete(key);
+        } else {
+          const messageElement = createMessageElement(msg);
+          messagesArea.appendChild(messageElement);
+        }
+      });
+
+      existingMessages.forEach(el => el.remove());
+      
+      messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
+    function createMessageElement(msg) {
+      const bubble = document.createElement('div');
+      bubble.className = 'message-bubble';
+      bubble.dataset.timestamp = msg.timestamp;
+
+      const username = document.createElement('div');
+      username.className = 'message-username';
+      username.textContent = msg.username;
+
+      const text = document.createElement('div');
+      text.className = 'message-text';
+      
+      // Check if message contains photo data
+      if (msg.photoData) {
+        const caption = document.createElement('div');
+        caption.textContent = msg.message;
+        caption.style.marginBottom = '8px';
+        text.appendChild(caption);
+        
+        const img = document.createElement('img');
+        img.src = msg.photoData;
+        img.alt = msg.message;
+        img.style.cssText = 'max-width: 100%; border-radius: 8px; margin-top: 8px; display: block;';
+        text.appendChild(img);
+      } else {
+        text.textContent = msg.message;
+      }
+
+      const time = document.createElement('div');
+      time.className = 'message-time';
+      const date = new Date(msg.timestamp);
+      time.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      bubble.appendChild(username);
+      bubble.appendChild(text);
+      bubble.appendChild(time);
+
+      return bubble;
+    }
+
+    function checkMessageLimit() {
+      const limitWarning = document.getElementById('limitWarning');
+      const sendButton = document.getElementById('sendButton');
+      
+      if (messageCount >= 999) {
+        limitWarning.classList.add('show');
+        sendButton.disabled = true;
+      } else {
+        limitWarning.classList.remove('show');
+        sendButton.disabled = false;
+      }
+    }
+
+    async function handleSubmit(event) {
+      event.preventDefault();
+
+      if (messageCount >= 999) {
+        return;
+      }
+
+      const messageInput = document.getElementById('messageInput');
+      const sendButton = document.getElementById('sendButton');
+
+      const username = userProfile.displayName;
+      const message = messageInput.value.trim();
+
+      if (!username || !message) return;
+
+      sendButton.disabled = true;
+      sendButton.textContent = 'Sending...';
+
+      const result = await window.dataSdk.create({
+        username: username,
+        message: message,
+        photoData: null,
+        timestamp: new Date().toISOString()
+      });
+
+      if (result.isOk) {
+        messageInput.value = '';
+        messageInput.focus();
+      } else {
+        showInlineError('Failed to send message. Please try again.');
+      }
+
+      sendButton.disabled = false;
+      sendButton.textContent = 'Send';
+    }
+
+    function showInlineError(message) {
+      const errorDiv = document.createElement('div');
+      errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #e53e3e; color: white; padding: 12px 24px; border-radius: 8px; z-index: 2000; animation: slideIn 0.3s ease;';
+      errorDiv.textContent = message;
+      document.body.appendChild(errorDiv);
+      setTimeout(() => errorDiv.remove(), 3000);
+    }
+
+    function showInlineSuccess(message) {
+      const successDiv = document.createElement('div');
+      successDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #38a169; color: white; padding: 12px 24px; border-radius: 8px; z-index: 2000; animation: slideIn 0.3s ease;';
+      successDiv.textContent = message;
+      document.body.appendChild(successDiv);
+      setTimeout(() => successDiv.remove(), 3000);
+    }
+
+    function openPhotoModal() {
+      const photoModal = document.getElementById('photoModal');
+      const photoStatus = document.getElementById('photoStatus');
+      const photoStatusMessage = document.getElementById('photoStatusMessage');
+      const photoPreview = document.getElementById('photoPreview');
+      const sendPhotoButton = document.getElementById('sendPhotoButton');
+      
+      photoStatus.textContent = 'Upload Photo';
+      photoStatusMessage.textContent = 'Choose a photo to share with everyone';
+      sendPhotoButton.style.display = 'none';
+      selectedPhoto = null;
+      
+      photoPreview.innerHTML = `
+        <div style="text-align: center;">
+          <div style="font-size: 80px; margin-bottom: 10px;">📷</div>
+          <div style="color: #999; font-size: 14px;">Click below to select a photo</div>
+        </div>
+      `;
+      
+      photoModal.classList.add('active');
+    }
+
+    function closePhotoModal() {
+      const photoModal = document.getElementById('photoModal');
+      photoModal.classList.remove('active');
+      selectedPhoto = null;
+    }
+
+    function handlePhotoSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        showInlineError('Please select a valid image file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // Compress the image before storing
+        compressImage(e.target.result, file.name);
+      };
+
+      reader.readAsDataURL(file);
+    }
+
+    function compressImage(dataUrl, fileName) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Resize to max 800px width while maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        const maxWidth = 800;
+        
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        
+        selectedPhoto = {
+          name: fileName,
+          dataUrl: compressedDataUrl
+        };
+
+        const photoPreview = document.getElementById('photoPreview');
+        const photoStatus = document.getElementById('photoStatus');
+        const photoStatusMessage = document.getElementById('photoStatusMessage');
+        const sendPhotoButton = document.getElementById('sendPhotoButton');
+
+        photoPreview.innerHTML = `
+          <img src="${compressedDataUrl}" alt="Selected photo" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;">
+        `;
+
+        photoStatus.textContent = '✓ Photo Selected';
+        photoStatusMessage.textContent = `${fileName} - Ready to send to everyone`;
+        sendPhotoButton.style.display = 'flex';
+      };
+      
+      img.src = dataUrl;
+    }
+
+    async function sendPhoto() {
+      if (!selectedPhoto || messageCount >= 999) return;
+
+      const sendPhotoButton = document.getElementById('sendPhotoButton');
+      sendPhotoButton.disabled = true;
+      sendPhotoButton.textContent = '📤 Sending...';
+
+      const username = userProfile.displayName;
+
+      const result = await window.dataSdk.create({
+        username: username,
+        message: `📷 Photo: ${selectedPhoto.name}`,
+        photoData: selectedPhoto.dataUrl,
+        timestamp: new Date().toISOString()
+      });
+
+      if (result.isOk) {
+        showInlineSuccess('Photo sent to everyone!');
+        closePhotoModal();
+      } else {
+        showInlineError('Failed to send photo. Please try again.');
+        sendPhotoButton.disabled = false;
+        sendPhotoButton.textContent = '📤 Send to Everyone';
+      }
+    }
+
+    const CHAT_PASSWORD = 'hi';
+
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+
+      const displayNameInput = document.getElementById('loginDisplayName');
+      const passwordInput = document.getElementById('loginPassword');
+      const loginError = document.getElementById('loginError');
+
+      const displayName = displayNameInput.value.trim();
+      const password = passwordInput.value;
+
+      loginError.style.display = 'none';
+
+      if (!displayName) {
+        loginError.textContent = 'Name is required';
+        loginError.style.display = 'block';
+        return;
+      }
+
+      if (password !== CHAT_PASSWORD) {
+        loginError.textContent = 'Incorrect password';
+        loginError.style.display = 'block';
+        return;
+      }
+
+      userProfile.displayName = displayName;
+
+      const loginScreen = document.getElementById('loginScreen');
+      const chatContainer = document.getElementById('chatContainer');
+      
+      loginScreen.style.display = 'none';
+      chatContainer.style.display = 'flex';
+    }
+
+    function openHistory() {
+      const historyModal = document.getElementById('historyModal');
+      const historyContent = document.getElementById('historyContent');
+      const historyCount = document.getElementById('historyCount');
+
+      historyContent.innerHTML = '';
+      historyCount.textContent = messages.length;
+
+      if (messages.length === 0) {
+        historyContent.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">No messages yet. Start chatting!</div>';
+      } else {
+        messages.forEach(msg => {
+          const historyItem = document.createElement('div');
+          historyItem.style.cssText = 'background: #1a1a1a; border-radius: 8px; padding: 12px 16px; border-left: 3px solid #667eea;';
+
+          const historyUsername = document.createElement('div');
+          historyUsername.style.cssText = 'font-weight: 700; color: #667eea; margin-bottom: 4px; font-size: 14px;';
+          historyUsername.textContent = msg.username;
+
+          const historyText = document.createElement('div');
+          historyText.style.cssText = 'color: #e0e0e0; margin-bottom: 4px; font-size: 14px; line-height: 1.4;';
+          
+          if (msg.photoData) {
+            const caption = document.createElement('div');
+            caption.textContent = msg.message;
+            caption.style.marginBottom = '8px';
+            historyText.appendChild(caption);
+            
+            const img = document.createElement('img');
+            img.src = msg.photoData;
+            img.alt = msg.message;
+            img.style.cssText = 'max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 8px; display: block;';
+            historyText.appendChild(img);
+          } else {
+            historyText.textContent = msg.message;
+          }
+
+          const historyTime = document.createElement('div');
+          historyTime.style.cssText = 'color: #999; font-size: 11px;';
+          const date = new Date(msg.timestamp);
+          historyTime.textContent = date.toLocaleString([], { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+
+          historyItem.appendChild(historyUsername);
+          historyItem.appendChild(historyText);
+          historyItem.appendChild(historyTime);
+
+          historyContent.appendChild(historyItem);
+        });
+      }
+
+      historyModal.classList.add('active');
+    }
+
+    function closeHistory() {
+      const historyModal = document.getElementById('historyModal');
+      historyModal.classList.remove('active');
+    }
+
+    function openProfile() {
+      const profileModal = document.getElementById('profileModal');
+      const displayNameInput = document.getElementById('displayNameInput');
+      const profileError = document.getElementById('profileError');
+      const profileSuccess = document.getElementById('profileSuccess');
+
+      displayNameInput.value = userProfile.displayName;
+      profileError.style.display = 'none';
+      profileSuccess.style.display = 'none';
+
+      profileModal.classList.add('active');
+    }
+
+    function closeProfile() {
+      const profileModal = document.getElementById('profileModal');
+      profileModal.classList.remove('active');
+    }
+
+    function handleProfileSubmit(event) {
+      event.preventDefault();
+
+      const displayNameInput = document.getElementById('displayNameInput');
+      const profileError = document.getElementById('profileError');
+      const profileSuccess = document.getElementById('profileSuccess');
+
+      const displayName = displayNameInput.value.trim();
+
+      profileError.style.display = 'none';
+      profileSuccess.style.display = 'none';
+
+      if (!displayName) {
+        profileError.textContent = 'Display name is required';
+        profileError.style.display = 'block';
+        return;
+      }
+
+      userProfile.displayName = displayName;
+
+      profileSuccess.textContent = 'Profile updated successfully!';
+      profileSuccess.style.display = 'block';
+
+      setTimeout(() => {
+        closeProfile();
+      }, 1500);
+    }
+
+    async function onConfigChange(config) {
+      const chatTitle = document.getElementById('chatTitle');
+      const welcomeMessage = document.getElementById('welcomeMessage');
+      const chatContainer = document.querySelector('.chat-container');
+      const messageBubbles = document.querySelectorAll('.message-bubble');
+      const sendButton = document.getElementById('sendButton');
+
+      originalTitle = config.chat_title || defaultConfig.chat_title;
+      chatTitle.textContent = originalTitle;
+      welcomeMessage.textContent = config.welcome_message || defaultConfig.welcome_message;
+      updateTabNotification();
+
+      const bgColor = config.background_color || defaultConfig.background_color;
+      const surfaceColor = config.surface_color || defaultConfig.surface_color;
+      const textColor = config.text_color || defaultConfig.text_color;
+      const primaryActionColor = config.primary_action_color || defaultConfig.primary_action_color;
+      const fontFamily = config.font_family || defaultConfig.font_family;
+      const baseFontSize = config.font_size || defaultConfig.font_size;
+
+      chatContainer.style.background = `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}dd 100%)`;
+      
+      messageBubbles.forEach(bubble => {
+        bubble.style.background = surfaceColor;
+        bubble.querySelector('.message-text').style.color = textColor;
+      });
+
+      sendButton.style.background = primaryActionColor;
+
+      document.body.style.fontFamily = `${fontFamily}, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+      chatTitle.style.fontSize = `${baseFontSize * 1.87}px`;
+      welcomeMessage.style.fontSize = `${baseFontSize * 0.93}px`;
+      document.querySelectorAll('.message-text').forEach(el => {
+        el.style.fontSize = `${baseFontSize}px`;
+      });
+      document.querySelectorAll('.message-username').forEach(el => {
+        el.style.fontSize = `${baseFontSize * 0.93}px`;
+      });
+    }
+
+    async function init() {
+      // Listen for visibility changes to update tab notifications
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          updateTabNotification();
+        }
+      });
+
+      const loginForm = document.getElementById('loginForm');
+      loginForm.addEventListener('submit', handleLoginSubmit);
+
+      const messageForm = document.getElementById('messageForm');
+      messageForm.addEventListener('submit', handleSubmit);
+
+      const photoButton = document.getElementById('photoButton');
+      photoButton.addEventListener('click', openPhotoModal);
+
+      const selectPhotoButton = document.getElementById('selectPhotoButton');
+      selectPhotoButton.addEventListener('click', () => {
+        document.getElementById('photoInput').click();
+      });
+
+      const photoInput = document.getElementById('photoInput');
+      photoInput.addEventListener('change', handlePhotoSelect);
+
+      const sendPhotoButton = document.getElementById('sendPhotoButton');
+      sendPhotoButton.addEventListener('click', sendPhoto);
+
+      const closePhotoButton = document.getElementById('closePhotoButton');
+      closePhotoButton.addEventListener('click', closePhotoModal);
+
+      const historyButton = document.getElementById('historyButton');
+      historyButton.addEventListener('click', openHistory);
+
+      const closeHistoryButton = document.getElementById('closeHistoryButton');
+      closeHistoryButton.addEventListener('click', closeHistory);
+
+      const profileButton = document.getElementById('profileButton');
+      profileButton.addEventListener('click', openProfile);
+
+      const cancelProfileButton = document.getElementById('cancelProfileButton');
+      cancelProfileButton.addEventListener('click', closeProfile);
+
+      const profileForm = document.getElementById('profileForm');
+      profileForm.addEventListener('submit', handleProfileSubmit);
+
+      if (window.dataSdk) {
+        const initResult = await window.dataSdk.init(dataHandler);
+        if (!initResult.isOk) {
+          console.error('Failed to initialize data SDK');
+        }
+      }
+
+      if (window.elementSdk) {
+        window.elementSdk.init({
+          defaultConfig,
+          onConfigChange,
+          mapToCapabilities: (config) => ({
+            recolorables: [
+              {
+                get: () => config.background_color || defaultConfig.background_color,
+                set: (value) => {
+                  config.background_color = value;
+                  window.elementSdk.setConfig({ background_color: value });
+                }
+              },
+              {
+                get: () => config.surface_color || defaultConfig.surface_color,
+                set: (value) => {
+                  config.surface_color = value;
+                  window.elementSdk.setConfig({ surface_color: value });
+                }
+              },
+              {
+                get: () => config.text_color || defaultConfig.text_color,
+                set: (value) => {
+                  config.text_color = value;
+                  window.elementSdk.setConfig({ text_color: value });
+                }
+              },
+              {
+                get: () => config.primary_action_color || defaultConfig.primary_action_color,
+                set: (value) => {
+                  config.primary_action_color = value;
+                  window.elementSdk.setConfig({ primary_action_color: value });
+                }
+              }
+            ],
+            borderables: [],
+            fontEditable: {
+              get: () => config.font_family || defaultConfig.font_family,
+              set: (value) => {
+                config.font_family = value;
+                window.elementSdk.setConfig({ font_family: value });
+              }
+            },
+            fontSizeable: {
+              get: () => config.font_size || defaultConfig.font_size,
+              set: (value) => {
+                config.font_size = value;
+                window.elementSdk.setConfig({ font_size: value });
+              }
+            }
+          }),
+          mapToEditPanelValues: (config) => new Map([
+            ['chat_title', config.chat_title || defaultConfig.chat_title],
+            ['welcome_message', config.welcome_message || defaultConfig.welcome_message]
+          ])
+        });
+      }
+    }
+
+    init();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a9792d771252b06',t:'MTc2NDk3OTk2Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
